@@ -4,9 +4,13 @@
 
 const vertexShaderSource = `
 attribute vec4 a_position;
+uniform float u_rotation; 
 
 void main() {
-  gl_Position = a_position;
+    float x = a_position.x * cos(u_rotation) - a_position.y * sin(u_rotation);
+    float y = a_position.x * sin(u_rotation) + a_position.y * cos(u_rotation);
+    
+    gl_Position = vec4(x,y,0,1);
 }
 `;
 
@@ -59,6 +63,44 @@ function main() {
         window.alert("WebGL not supported!");
         return;
     }
+
+    //INPUT 
+    let downKeyPressed = false;
+
+    document.addEventListener("keydown", function(event) 
+    {
+        switch(event.key)
+        {
+            case "ArrowDown":downKeyPressed = true;
+            break;
+        }
+    });
+    document.addEventListener("keyup", function(event) 
+    {
+        switch(event.key)
+        {
+            case "ArrowDown":downKeyPressed = false;
+            break;
+        }
+    });
+
+    //RESIZE THE CANVAS
+    let resizeCanvas = function() {
+        const resolution= window.devicePixelRatio || 1.0;
+        const displayWidth = Math.floor(canvas.clientWidth * resolution);
+        const displayHeight = Math.floor(canvas.clientHeight * resolution);
+        
+        if (canvas.width !== displayWidth || canvas.height !== displayHeight) 
+        {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            return true;
+        }
+        else 
+        {
+            return false;
+        }    
+    }
     
     // create GLSL shaders, upload the GLSL source, compile the shaders
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
@@ -71,17 +113,27 @@ function main() {
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,1,0,0,1]), gl.STATIC_DRAW);
 
+
     // Set up the position attribute
     // Note: This has to happen /after/ the array buffer is bound
     const positionAttribute = gl.getAttribLocation(program, "a_position");
     gl.enableVertexAttribArray(positionAttribute);
     gl.vertexAttribPointer(positionAttribute, 2, gl.FLOAT, false, 0, 0);
-
     const rotationUniform = gl.getUniformLocation(program, "u_rotation");
 
     // === Per Frame operations ===
+    let angle = 0;
+    const turnSpeed = 1;
+    let dx = 0;
+    let dy = 0;
+    const speed = 0.5;
 
     let update = function(deltaTime) {
+        angle += turnSpeed * deltaTime;
+        if (downKeyPressed)
+        {
+            dy -= speed * deltaTime;
+        }
     };
 
     let render = function() {
@@ -90,10 +142,27 @@ function main() {
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
+        //give the rotation angle
+        gl.uniform1f(rotationUniform, angle);
+
         // draw a triangle
         gl.drawArrays(gl.TRIANGLES, 0, 3);   
     };
 
+    let oldTime = 0;
+    let animate = function(time)
+    {
+        time /= 1000;
+        const deltaTime = time - oldTime;
+        oldTime = time;
+
+        resizeCanvas();
+        update(deltaTime);
+        render();
+        requestAnimationFrame(animate);
+    }
+    
     render();
+    animate(0);
 }    
 
